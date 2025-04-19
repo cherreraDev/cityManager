@@ -6,22 +6,24 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"resource-service/cmd/api/bootstrap/config"
+	"resource-service/internal/resource/application"
 	"resource-service/internal/resource/domain"
 	"resource-service/internal/resource/platform/kafka"
+	"resource-service/internal/resource/platform/repositories/persistence_gorm"
 	"sync"
 	"time"
 )
 
 type Container struct {
 	// Infrastructure
-	producer *kafka.Producer
-	db       *gorm.DB
+	Producer *kafka.Producer
+	Db       *gorm.DB
 
 	// Repositories
-	resourceRepo domain.ResourceRepository
+	ResourceRepo domain.ResourceRepository
 
 	//Services
-	resourceService domain.ResourceService
+	ResourceService domain.ResourceService
 }
 
 var (
@@ -45,14 +47,17 @@ func InitializeContainer(cfg config.Config) (*Container, error) {
 		//Producer
 		producer := kafka.NewProducer(cfg.Kafka.Brokers)
 
-		//Repositories
-		//ToDo
-		//Services
-		//ToDo
+		// Repositories
+		var resourceRepo domain.ResourceRepository = persistence_gorm.NewResourceRepository(db)
+
+		// Services
+		var resourceService domain.ResourceService = application.NewResourceService(resourceRepo)
 
 		container = &Container{
-			producer: producer,
-			db:       db,
+			Producer:        producer,
+			Db:              db,
+			ResourceService: resourceService,
+			ResourceRepo:    resourceRepo,
 		}
 	})
 	return container, initErr

@@ -5,7 +5,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"resource-service/cmd/api/bootstrap/config"
 	"resource-service/internal/di"
+	"resource-service/internal/resource/platform/kafka"
 	"resource-service/internal/resource/platform/server"
+	"sync"
 )
 
 func Run() error {
@@ -20,5 +22,10 @@ func Run() error {
 	}
 
 	ctx, srv := server.NewServer(context.Background(), cfg.HTTP.Host, cfg.HTTP.Port, cfg.HTTP.ShutdownTimeout)
+	var wg sync.WaitGroup
+	err = kafka.StartConsumers(container, &cfg, ctx, &wg)
+	if err != nil {
+		return err
+	}
 	return srv.Run(ctx, container)
 }

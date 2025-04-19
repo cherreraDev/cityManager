@@ -24,6 +24,7 @@ func NewServer(ctx context.Context, host, port string, shutdownTimeout time.Dura
 		httpAddr:        fmt.Sprintf("%s:%s", host, port),
 		shutdownTimeout: shutdownTimeout,
 	}
+	srv.engine.Use(gin.Logger(), gin.Recovery())
 	return serverContext(ctx), srv
 }
 
