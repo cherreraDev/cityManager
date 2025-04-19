@@ -69,3 +69,16 @@ func (s *ResourceService) ConsumeResources(ctx context.Context, cityID uuid.UUID
 		return nil
 	})
 }
+
+func (s *ResourceService) InitializeCityResources(ctx context.Context, cityID uuid.UUID) error {
+	initialResources := map[string]float64{
+		"water":    0,
+		"food":     0,
+		"energy":   0,
+		"minerals": 0,
+	}
+	if err := s.repo.InitializeResources(ctx, cityID, initialResources); err != nil {
+		return fmt.Errorf("failed to initialize resources in DB: %w", err)
+	}
+	return nil
+}

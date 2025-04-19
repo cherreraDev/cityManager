@@ -8,4 +8,6 @@ import (
 type ResourceService interface {
 	ConsumeResources(ctx context.Context, cityID uuid.UUID, resources map[string]float64) error
 	GetResources(cityID uuid.UUID) ([]Resource, error)
+
+	InitializeCityResources(ctx context.Context, cityId uuid.UUID) error
 }

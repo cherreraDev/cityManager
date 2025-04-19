@@ -10,6 +10,7 @@ services:
     environment:
       - KAFKA_BROKERS=kafka:9092
       - KAFKA_GROUPID=resource-service
+      - KAFKA_CITY_GROUPID=resource-service-city  # Nuevo grupo para city-events
       - TOPIC_RESOURCE_UPDATES=resource-updates
       - TOPIC_CITY_EVENTS=city-events
       - PORT=8080
@@ -19,13 +20,16 @@ services:
       - DB_PASSWORD=userpassword
       - DB_HOST=mysql
       - DB_PORT=3306
-      - DB_NAME=mydb
+      - DB_NAME=resources  # Cambiado de mydb a resources para consistencia
       - DB_TIMEOUT=10s
       - SECRET_KEY=secretos123
       - ENVIRONMENT=dev
+      - INITIAL_RESOURCES=water:0,food:0,energy:0,minerals:0  # Nuevo
     depends_on:
-      - mysql
-      - kafka
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - city-network
 
@@ -35,15 +39,17 @@ services:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_USER: user
       MYSQL_PASSWORD: userpassword
-      MYSQL_DATABASE: resources
+      MYSQL_DATABASE: resources  # Cambiado para coincidir con DB_NAME
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./backend/resource-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql  # Nuevo
     networks:
       - city-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
       timeout: 20s
       retries: 10
 
@@ -61,6 +67,7 @@ services:
       - zookeeper
     ports:
       - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -70,12 +77,37 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'  # Nuevo
     networks:
       - city-network
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 5s
       timeout: 20s
       retries: 10
+
+  kafka-init:  # Nuevo servicio para crear topics
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      - kafka
+    networks:
+      - city-network
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # Esperar a que Kafka esté listo
+      while ! kafka-topics --bootstrap-server kafka:9092 --list; do
+        echo 'Waiting for Kafka...'
+        sleep 1
+      done
+      
+      # Crear topics si no existen
+      kafka-topics --bootstrap-server kafka:9092 --create --topic resource-updates --partitions 3 --replication-factor 1 --if-not-exists
+      kafka-topics --bootstrap-server kafka:9092 --create --topic city-events --partitions 3 --replication-factor 1 --if-not-exists
+      
+      echo 'Topics created successfully'
+      "
+    restart: on-failure
 
 volumes:
   mysql-data:
