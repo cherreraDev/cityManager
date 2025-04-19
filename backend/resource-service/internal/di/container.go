@@ -8,7 +8,7 @@ import (
 	"resource-service/cmd/api/bootstrap/config"
 	"resource-service/internal/resource/application"
 	"resource-service/internal/resource/domain"
-	"resource-service/internal/resource/platform/kafka"
+	"resource-service/internal/resource/platform/kafka/producer"
 	"resource-service/internal/resource/platform/repositories/persistence_gorm"
 	"sync"
 	"time"
@@ -16,8 +16,8 @@ import (
 
 type Container struct {
 	// Infrastructure
-	Producer *kafka.Producer
 	Db       *gorm.DB
+	Producer *producer.Producer
 
 	// Repositories
 	ResourceRepo domain.ResourceRepository
@@ -44,18 +44,17 @@ func InitializeContainer(cfg config.Config) (*Container, error) {
 			return
 		}
 
-		//Producer
-		producer := kafka.NewProducer(cfg.Kafka.Brokers)
+		prod := producer.NewProducer(cfg.Kafka.Brokers)
 
 		// Repositories
 		var resourceRepo domain.ResourceRepository = persistence_gorm.NewResourceRepository(db)
 
 		// Services
-		var resourceService domain.ResourceService = application.NewResourceService(resourceRepo)
+		var resourceService domain.ResourceService = application.NewResourceService(resourceRepo, prod)
 
 		container = &Container{
-			Producer:        producer,
 			Db:              db,
+			Producer:        prod,
 			ResourceService: resourceService,
 			ResourceRepo:    resourceRepo,
 		}
@@ -78,6 +77,10 @@ func waitForDB(dbURI string, timeout time.Duration) (*gorm.DB, error) {
 	for {
 		db, err := gorm.Open(mysql.Open(dbURI))
 		if err == nil {
+			err = db.AutoMigrate(&persistence_gorm.ResourceModel{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to auto-migrate ResourceModel: %w", err)
+			}
 			return db, nil
 		}
 		if time.Since(start) > timeout {

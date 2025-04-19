@@ -1,24 +1,28 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"resource-service/internal/resource/domain"
+	"resource-service/internal/resource/platform/kafka/producer"
+	"time"
 )
 
 type ResourceService struct {
-	repo domain.ResourceRepository
+	repo     domain.ResourceRepository
+	producer *producer.Producer
 }
 
-func NewResourceService(repo domain.ResourceRepository) *ResourceService {
-	return &ResourceService{repo: repo}
+func NewResourceService(repo domain.ResourceRepository, producer *producer.Producer) *ResourceService {
+	return &ResourceService{repo: repo, producer: producer}
 }
 
 func (s *ResourceService) GetResources(cityID uuid.UUID) ([]domain.Resource, error) {
 	return s.repo.FindByCityID(cityID)
 }
 
-func (s *ResourceService) ConsumeResources(cityID uuid.UUID, required map[string]float64) error {
+func (s *ResourceService) ConsumeResources(ctx context.Context, cityID uuid.UUID, required map[string]float64) error {
 	return s.repo.WithTransaction(func(txRepo domain.ResourceRepository) error {
 		resources, err := txRepo.FindByCityID(cityID)
 		if err != nil {
@@ -45,6 +49,21 @@ func (s *ResourceService) ConsumeResources(cityID uuid.UUID, required map[string
 			if err := txRepo.Save(res); err != nil {
 				return fmt.Errorf("failed to persist resource %s: %w", res.Type, err)
 			}
+		}
+		event := map[string]interface{}{
+			"event_type": "resources_consumed",
+			"city_id":    cityID,
+			"resources":  required,
+			"timestamp":  time.Now().UTC(),
+		}
+
+		key, err := cityID.MarshalBinary()
+		if err != nil {
+			return fmt.Errorf("failed to marshal cityID: %w", err)
+		}
+
+		if err := s.producer.SendJSON(ctx, "resource-updates", key, event); err != nil {
+			return fmt.Errorf("failed to send kafka message: %w", err)
 		}
 
 		return nil

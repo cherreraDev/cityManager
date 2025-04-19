@@ -1,4 +1,4 @@
-package kafka
+package consumer
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 func startResourceConsumer(container *di.Container, config *config.Config, ctx context.Context, wg *sync.WaitGroup) error {
 	consumerConfig := ConsumerConfig{
 		Brokers:  config.Kafka.Brokers,
-		GroupID:  "resource-service-group",
+		GroupID:  "resource-service",
 		Topic:    config.Kafka.Topics.ResourceUpdates,
 		MinBytes: 1e3, // 1KB
 		MaxBytes: 1e6, // 1MB
@@ -25,8 +25,7 @@ func startResourceConsumer(container *di.Container, config *config.Config, ctx c
 
 	// Message processing function
 	processMessage := func(key []byte, value any) error {
-		// Parse the message into the expected format
-		// Assuming the message contains cityID and required resources
+
 		type ResourceRequest struct {
 			CityID   uuid.UUID          `json:"city_id"`
 			Required map[string]float64 `json:"required"`
@@ -38,7 +37,7 @@ func startResourceConsumer(container *di.Container, config *config.Config, ctx c
 		}
 
 		// Call the service method
-		return container.ResourceService.ConsumeResources(request.CityID, request.Required)
+		return container.ResourceService.ConsumeResources(context.Background(), request.CityID, request.Required)
 	}
 
 	wg.Add(1)

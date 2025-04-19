@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"resource-service/internal/di"
+	"syscall"
 	"time"
 )
 
@@ -18,14 +19,16 @@ type Server struct {
 	shutdownTimeout time.Duration
 }
 
-func NewServer(ctx context.Context, host, port string, shutdownTimeout time.Duration) (context.Context, Server) {
+func NewServer(ctx context.Context, host, port string, shutdownTimeout time.Duration) (context.Context,
+	context.CancelFunc, Server) {
 	srv := Server{
 		engine:          gin.New(),
 		httpAddr:        fmt.Sprintf("%s:%s", host, port),
 		shutdownTimeout: shutdownTimeout,
 	}
 	srv.engine.Use(gin.Logger(), gin.Recovery())
-	return serverContext(ctx), srv
+	c, cancel := serverContext(ctx)
+	return c, cancel, srv
 }
 
 func (s *Server) Run(ctx context.Context, container *di.Container) error {
@@ -39,25 +42,39 @@ func (s *Server) Run(ctx context.Context, container *di.Container) error {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("server shut down", err)
+			log.Printf("server error: %v", err) // Cambiado de Fatal a Printf
 		}
 	}()
 
 	<-ctx.Done()
+	log.Println("server received shutdown signal")
+
 	ctxShutDown, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 	defer cancel()
 
-	return srv.Shutdown(ctxShutDown)
+	if err := srv.Shutdown(ctxShutDown); err != nil {
+		return fmt.Errorf("server shutdown error: %w", err)
+	}
+
+	log.Println("server stopped gracefully")
+	return nil
 }
 
-// Gracefully shutdown
-func serverContext(ctx context.Context) context.Context {
+// Gracefully shutdown (mejorada)
+func serverContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM) // Añadido SIGTERM
+
 	ctx, cancel := context.WithCancel(ctx)
+
+	// Almacenamos la función cancel en el contexto para poder usarla desde fuera
+	ctx = context.WithValue(ctx, "cancelFunc", cancel)
+
 	go func() {
 		<-c
+		log.Println("received interrupt signal")
 		cancel()
 	}()
-	return ctx
+
+	return ctx, cancel
 }

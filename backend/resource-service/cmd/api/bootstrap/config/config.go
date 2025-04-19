@@ -24,7 +24,7 @@ type Config struct {
 		Password string        `envconfig:"DB_PASSWORD" default:"userpassword"`
 		Host     string        `envconfig:"DB_HOST" default:"localhost"`
 		Port     string        `envconfig:"DB_PORT" default:"3306"`
-		Name     string        `envconfig:"DB_NAME" default:"mydb"`
+		Name     string        `envconfig:"DB_NAME" default:"resources"`
 		Timeout  time.Duration `envconfig:"DB_TIMEOUT" default:"10s"`
 	}
 	SecretKey   string `envconfig:"SECRET_KEY" default:"secretos123"`

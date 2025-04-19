@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"net/http"
@@ -49,7 +50,7 @@ func (rh *ResourceHandler) ConsumeResources(ctx *gin.Context) {
 		return
 	}
 
-	if err := rh.service.ConsumeResources(cityID, dto.Resources); err != nil {
+	if err := rh.service.ConsumeResources(context.Background(), cityID, dto.Resources); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
