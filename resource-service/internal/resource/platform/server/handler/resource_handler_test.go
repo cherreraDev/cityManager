@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -44,7 +45,7 @@ func TestGetResources(t *testing.T) {
 
 func TestConsumeResources(t *testing.T) {
 	mockService := &mocks.MockResourceService{
-		ConsumeResourcesFn: func(cityID uuid.UUID, resources map[string]float64) error {
+		ConsumeResourcesFn: func(ctx context.Context, cityID uuid.UUID, resources map[string]float64) error {
 			assert.Equal(t, float64(10), resources["wood"])
 			return nil
 		},
