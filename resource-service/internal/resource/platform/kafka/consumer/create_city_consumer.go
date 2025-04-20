@@ -32,7 +32,7 @@ func startCityConsumer(container *di.Container, config *config.Config, ctx conte
 		}
 
 		var event CityEvent
-		if err := json.Unmarshal(key, &event); err != nil {
+		if err := json.Unmarshal(value.([]byte), &event); err != nil {
 			return fmt.Errorf("error unmarshaling city event: %v", err)
 		}
 

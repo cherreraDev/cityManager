@@ -3,7 +3,7 @@ version: '3.8'
 services:
   resource-service:
     build:
-      context: ./backend/resource-service
+      context: ./resource-service
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
@@ -44,7 +44,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./backend/resource-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql  # Nuevo
+      - ./resource-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql  # Nuevo
     networks:
       - city-network
     healthcheck:
